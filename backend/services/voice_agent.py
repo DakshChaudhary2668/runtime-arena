@@ -206,6 +206,25 @@ def start_voice_session(channel=None, user_uid=None, mission=None, hint_level=0,
                     }
                 logger.info("Published Agora Voice Agent started: %s on channel %s", agent_id, target_channel)
                 return {"available": True, "agent_id": agent_id}
+            elif resp.status_code == 409:
+                existing_agent_id = resp.json().get("agent_id")
+                if existing_agent_id:
+                    with _sessions_lock:
+                        _sessions[existing_agent_id] = {
+                            "type": "rest",
+                            "channel": target_channel,
+                            "start_time": time.time(),
+                            "context": context or {},
+                        }
+                    logger.info("Reusing active Agora Voice Agent: %s on channel %s", existing_agent_id, target_channel)
+                    return {"available": True, "agent_id": existing_agent_id}
+                logger.warning("Agora agent conflict without agent_id: %s", resp.text)
+                return {
+                    "available": False,
+                    "reason": "AGENT_START_FAILED",
+                    "message": "Agora agent session conflict.",
+                    "fallback": "text",
+                }
             else:
                 logger.warning("Agora agent join failed: %s %s", resp.status_code, resp.text)
                 return {

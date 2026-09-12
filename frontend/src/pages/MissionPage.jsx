@@ -313,6 +313,8 @@ export default function MissionPage() {
   };
 
   const handleToggleVoice = async () => {
+    if (voiceState === 'CONNECTING') return;
+
     const current = voiceSessionRef.current;
     if (current) {
       await current.setMuted(!current.muted).catch((error) => {
