@@ -30,7 +30,7 @@ function buildFilesForLang(lang) {
   };
 }
 
-const MEMBER_COLORS = ['#6C5CE7', '#A855F7', '#3B82F6', '#FFB800'];
+const MEMBER_COLORS = ['#FFFFFF', '#E2E2E2', '#B8BAB9', '#444345'];
 
 function getBadgeInfo(score) {
   if (score >= 50) return { label: 'Top Performer', className: 'ws-contributor-role--good', emoji: '🔥' };
@@ -528,8 +528,8 @@ export default function Workspace() {
                         style={{
                           width: `${contribution}%`,
                           background: contribution >= 30
-                            ? 'linear-gradient(90deg, #6C5CE7, #A855F7)'
-                            : 'linear-gradient(90deg, #3B82F6, #6C5CE7)',
+                            ? 'linear-gradient(90deg, #444345, #B8BAB9)'
+                            : 'linear-gradient(90deg, #E2E2E2, #444345)',
                         }}
                       />
                     </div>

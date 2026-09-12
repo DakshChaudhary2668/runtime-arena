@@ -1,0 +1,491 @@
+@import "tailwindcss";
+
+:root {
+  --color-void: #050811;
+  --color-bone: #FFFFFF;
+  --color-charcoal: #1a1f2e;
+  --color-frost: #E2E2E2;
+  --color-ash: #8b9bb4;
+
+  /* Cockpit Emergency Theme Colors */
+  --color-teal-glow: #14b8a6;
+  --color-teal-dark: #0f4a47;
+  --color-red-emergency: #ef4444;
+  --color-red-dark: #450a0a;
+  --color-amber-alert: #f59e0b;
+  --color-blue-deep: #0f172a;
+  --color-blue-cockpit: #08111d;
+
+  --rt-void: var(--color-void);
+  --rt-white: var(--color-bone);
+  --rt-frost: var(--color-frost);
+  --rt-charcoal: var(--color-charcoal);
+  --rt-ash: var(--color-ash);
+
+  --font-display: 'Cabinet Grotesk', 'Outfit', sans-serif;
+  --font-sans: 'Geist', 'Outfit', system-ui, sans-serif;
+  --font-mono: 'Geist Mono', 'JetBrains Mono', monospace;
+
+  --radius-control: 2px;
+  --radius-card: 10px;
+  --radius-panel: 20px;
+}
+
+/* Custom scrollbars - strict monochrome */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: #000000;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--rt-charcoal);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #444345;
+}
+
+/* Base resets & typography */
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--rt-void);
+  color: var(--rt-frost);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+input,
+textarea,
+select {
+  color: var(--color-bone);
+}
+
+.rt-control {
+  color: var(--color-bone);
+  background: var(--color-charcoal);
+  border: 1px solid var(--color-frost);
+  border-radius: var(--radius-control);
+}
+
+.rt-control:hover,
+.rt-control:focus-visible {
+  color: var(--color-bone);
+  background: var(--color-charcoal);
+  border-color: var(--color-bone);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* MekaVerse signature mark: sized from each title line, not its container. */
+.display-underline-mark {
+  position: relative;
+  display: inline-block;
+  font-family: var(--font-display);
+  font-weight: 400;
+}
+
+.display-underline-mark::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -3px;
+  width: 40%;
+  height: 1px;
+  background: var(--rt-frost);
+  pointer-events: none;
+}
+
+/* Scanline / CRT overlay - strictly monochrome, no chromatic aberration */
+.scanlines {
+  background: linear-gradient(
+    rgba(0, 0, 0, 0) 50%,
+    rgba(0, 0, 0, 0.25) 50%
+  ), linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.015),
+    rgba(255, 255, 255, 0.005),
+    rgba(255, 255, 255, 0.015)
+  );
+  background-size: 100% 3px, 6px 100%;
+  pointer-events: none;
+}
+
+/* Vignette */
+.vignette {
+  background: radial-gradient(circle at center, transparent 35%, rgba(0, 0, 0, 0.82) 100%);
+  pointer-events: none;
+}
+
+/* Subtle cockpit HUD grid - monochrome white lines at 3% opacity */
+.cockpit-grid {
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Screen shake for critical failures */
+@keyframes screenShake {
+  0% { transform: translate(0, 0); }
+  20% { transform: translate(-3px, 2px); }
+  40% { transform: translate(3px, -2px); }
+  60% { transform: translate(-2px, -1px); }
+  80% { transform: translate(2px, 1px); }
+  100% { transform: translate(0, 0); }
+}
+
+.shake-active {
+  animation: screenShake 0.35s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .shake-active {
+    animation: none !important;
+  }
+}
+
+/* Mission-clear simulation: a four-second monochrome system replay. */
+.simulation-replay__scan {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.16;
+  background: linear-gradient(180deg, transparent 0%, #e2e2e2 50%, transparent 100%);
+  background-size: 100% 16%;
+  animation: simulation-scan 4.4s linear both;
+}
+
+.simulation-replay__svg {
+  width: 100%;
+  min-height: 190px;
+  overflow: visible;
+}
+
+.simulation-replay__route {
+  fill: none;
+  stroke: #444345;
+  stroke-width: 3;
+}
+
+.simulation-replay__pulse {
+  fill: none;
+  stroke: #e2e2e2;
+  stroke-width: 2;
+  stroke-dasharray: 600;
+  stroke-dashoffset: 600;
+  animation: simulation-route 3.6s 0.35s ease-in-out forwards;
+}
+
+.simulation-replay__node circle {
+  fill: #000000;
+  stroke: #e2e2e2;
+  stroke-width: 2;
+}
+
+.simulation-replay__node text {
+  fill: #ffffff;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 16px;
+}
+
+.simulation-replay__node {
+  opacity: 0;
+  animation: simulation-node 0.45s ease-out forwards;
+}
+
+.simulation-replay__node--1 { animation-delay: 0.45s; }
+.simulation-replay__node--2 { animation-delay: 0.85s; }
+.simulation-replay__node--3 { animation-delay: 1.25s; }
+.simulation-replay__node--4 { animation-delay: 1.65s; }
+
+.simulation-replay__node .simulation-replay__resolved {
+  fill: #b8bab9;
+  font-size: 12px;
+  opacity: 0;
+  animation: simulation-resolved 0.45s 2.7s ease-out forwards;
+}
+
+.simulation-replay__gauge rect:first-child {
+  fill: #000000;
+  stroke: #e2e2e2;
+  stroke-width: 2;
+}
+
+.simulation-replay__gauge-fill {
+  fill: #e2e2e2;
+  transform-box: fill-box;
+  transform-origin: left;
+  transform: scaleX(0);
+  animation: simulation-gauge 3.5s 0.5s ease-out forwards;
+}
+
+@keyframes simulation-scan {
+  from { background-position: 0 -20%; }
+  to { background-position: 0 120%; }
+}
+
+@keyframes simulation-route {
+  0% { stroke-dashoffset: 600; }
+  65%, 100% { stroke-dashoffset: 0; }
+}
+
+@keyframes simulation-node {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes simulation-resolved {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes simulation-gauge {
+  0% { transform: scaleX(0); }
+  85%, 100% { transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .simulation-replay__scan,
+  .simulation-replay__pulse,
+  .simulation-replay__node,
+  .simulation-replay__resolved,
+  .simulation-replay__gauge-fill {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+  }
+}
+
+/* ========== GAMIFIED & CINEMATIC COCKPIT STYLES ========== */
+
+/* Cinematic Cockpit Scene Background */
+.cockpit-scene {
+  background:
+    radial-gradient(ellipse at 50% 120%, rgba(239, 68, 68, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 20% 80%, rgba(20, 184, 166, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 60%, rgba(15, 74, 71, 0.15) 0%, transparent 50%),
+    linear-gradient(180deg, #08111d 0%, #0f172a 50%, #050811 100%);
+  pointer-events: none;
+}
+
+/* Emergency Glow Effect */
+.emergency-glow {
+  background:
+    radial-gradient(circle at 30% 40%, rgba(239, 68, 68, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 70% 60%, rgba(20, 184, 166, 0.1) 0%, transparent 40%);
+  animation: emergencyPulse 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes emergencyPulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* Enhanced Cinematic Vignette */
+.vignette-cinematic {
+  background: radial-gradient(
+    ellipse at center,
+    transparent 20%,
+    rgba(5, 8, 17, 0.4) 60%,
+    rgba(5, 8, 17, 0.9) 100%
+  );
+  pointer-events: none;
+}
+
+/* Floating Code Particles */
+.code-particles {
+  background-image:
+    radial-gradient(1px 1px at 20% 30%, rgba(20, 184, 166, 0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 60% 70%, rgba(245, 158, 11, 0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 80% 20%, rgba(239, 68, 68, 0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 40% 80%, rgba(20, 184, 166, 0.2) 0%, transparent 100%),
+    radial-gradient(1px 1px at 90% 50%, rgba(245, 158, 11, 0.2) 0%, transparent 100%);
+  background-size: 300% 300%;
+  background-position: 0% 0%;
+  animation: particleFloat 20s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes particleFloat {
+  0%, 100% { background-position: 0% 0%; opacity: 0.6; }
+  25% { background-position: 100% 50%; opacity: 0.8; }
+  50% { background-position: 50% 100%; opacity: 1; }
+  75% { background-position: 0% 50%; opacity: 0.7; }
+}
+
+/* Circuit Overlay */
+.circuit-overlay {
+  background-image:
+    linear-gradient(90deg, transparent 49.5%, rgba(20, 184, 166, 0.15) 50%, transparent 50.5%),
+    linear-gradient(0deg, transparent 49.5%, rgba(20, 184, 166, 0.15) 50%, transparent 50.5%);
+  background-size: 80px 80px;
+  background-position: 0 0, 40px 40px;
+  animation: circuitPulse 3s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes circuitPulse {
+  0%, 100% { opacity: 0.1; }
+  50% { opacity: 0.3; }
+}
+
+/* Gamified Display Underline Mark */
+.display-underline-mark-gamified {
+  position: relative;
+  display: inline-block;
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.display-underline-mark-gamified::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -4px;
+  width: 45%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-teal-glow) 0%, transparent 100%);
+  box-shadow: 0 0 8px rgba(20, 184, 166, 0.6);
+  pointer-events: none;
+  animation: underlineGlow 2s ease-in-out infinite;
+}
+
+@keyframes underlineGlow {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* Teal Glow Effect */
+.glow-teal {
+  text-shadow:
+    0 0 10px rgba(20, 184, 166, 0.6),
+    0 0 20px rgba(20, 184, 166, 0.4),
+    0 0 30px rgba(20, 184, 166, 0.3);
+}
+
+/* Gradient Animation */
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradientShift 3s ease infinite;
+}
+
+/* Pulse Animations */
+.animate-pulse-slow {
+  animation: pulseSlow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulseSlow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.animate-pulse-fast {
+  animation: pulseFast 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulseFast {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-pulse-emergency {
+  animation: pulseEmergency 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulseEmergency {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.1);
+  }
+}
+
+/* Border Pulse Animation */
+.animate-border-pulse {
+  animation: borderPulse 2s ease-in-out infinite;
+}
+
+@keyframes borderPulse {
+  0%, 100% {
+    border-color: rgba(20, 184, 166, 0.5);
+    box-shadow: 0 0 5px rgba(20, 184, 166, 0.3);
+  }
+  50% {
+    border-color: rgba(239, 68, 68, 0.5);
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+  }
+}
+
+/* Gamified Control Styling */
+.rt-control-gamified {
+  color: var(--color-bone);
+  background: linear-gradient(135deg, rgba(20, 184, 166, 0.1) 0%, rgba(15, 74, 71, 0.2) 100%);
+  border: 1px solid var(--color-teal-glow);
+  border-radius: var(--radius-control);
+  transition: all 0.3s ease;
+}
+
+.rt-control-gamified:hover,
+.rt-control-gamified:focus-visible {
+  color: var(--color-bone);
+  background: linear-gradient(135deg, rgba(20, 184, 166, 0.2) 0%, rgba(15, 74, 71, 0.3) 100%);
+  border-color: var(--color-teal-glow);
+  box-shadow: 0 0 15px rgba(20, 184, 166, 0.5);
+}
+
+/* Enhanced Scrollbar - Gamified */
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--color-teal-glow) 0%, var(--color-teal-dark) 100%);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-teal-glow);
+  box-shadow: 0 0 8px rgba(20, 184, 166, 0.6);
+}
+
+/* Star Drift Animation for Space Rescue */
+@keyframes starDrift {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 100% 100%; }
+}
+
+/* Accessibility - Respect Reduced Motion for All Animations */
+@media (prefers-reduced-motion: reduce) {
+  .emergency-glow,
+  .code-particles,
+  .circuit-overlay,
+  .animate-gradient,
+  .animate-pulse-slow,
+  .animate-pulse-fast,
+  .animate-pulse-emergency,
+  .animate-border-pulse,
+  .display-underline-mark-gamified::after {
+    animation: none !important;
+  }
+
+  div[style*="starDrift"] {
+    animation: none !important;
+  }
+
+  .glow-teal {
+    text-shadow: none;
+  }
+}

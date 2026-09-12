@@ -1,92 +1,42 @@
+import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import HeroSection from './pages/HeroSection';
+import { AuthProvider } from './context/AuthContext';
+
+import EntryPage from './pages/EntryPage';
 import LoginPage from './pages/LoginPage';
-import SessionLobby from './pages/SessionLobby';
-import Workspace from './pages/Workspace';
-import Dashboard from './pages/Dashboard';
-
-function ProtectedRoute({ children, allowedRole }) {
-  const { user, loading } = useAuth();
-
-  if (loading) return null;
-  if (!user) return <Navigate to="/login" replace />;
-  if (allowedRole && user.role !== allowedRole) {
-    return <Navigate to={user.role === 'professor' ? '/dashboard' : '/session'} replace />;
-  }
-  return children;
-}
-
-function AppRoutes() {
-  const { user, loading } = useAuth();
-
-  if (loading) return null;
-
-  return (
-    <Routes>
-      {/* Public: Hero landing page */}
-      <Route
-        path="/"
-        element={
-          user
-            ? <Navigate to={user.role === 'professor' ? '/dashboard' : '/session'} replace />
-            : <HeroSection />
-        }
-      />
-      {/* Public: Login page */}
-      <Route
-        path="/login"
-        element={
-          user
-            ? <Navigate to={user.role === 'professor' ? '/dashboard' : '/session'} replace />
-            : <LoginPage />
-        }
-      />
-      {/* Protected: Student routes */}
-      <Route
-        path="/session"
-        element={
-          <ProtectedRoute allowedRole="student">
-            <SessionLobby />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/join/:code"
-        element={
-          user
-            ? <ProtectedRoute allowedRole="student"><SessionLobby /></ProtectedRoute>
-            : <Navigate to="/login" replace />
-        }
-      />
-      <Route
-        path="/workspace"
-        element={
-          <ProtectedRoute allowedRole="student">
-            <Workspace />
-          </ProtectedRoute>
-        }
-      />
-      {/* Protected: Professor route */}
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute allowedRole="professor">
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
-      {/* Catch-all */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
-  );
-}
+import ModuleSelectPage from './pages/ModuleSelectPage';
+import MissionPage from './pages/MissionPage';
+import SpaceRescueComingSoon from './pages/SpaceRescueComingSoon';
 
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <Routes>
+          {/* Cinematic Entry / Game Title Screen */}
+          <Route path="/" element={<EntryPage />} />
+
+          {/* Pilot Access Terminal */}
+          <Route path="/login" element={<LoginPage />} />
+
+          {/* Module & Sector Selection Deck */}
+          <Route path="/modules" element={<ModuleSelectPage />} />
+
+          {/* Space Rescue Classified Future Operations */}
+          <Route path="/modules/space-rescue" element={<SpaceRescueComingSoon />} />
+          <Route path="/module/space-rescue" element={<SpaceRescueComingSoon />} />
+
+          {/* Mission Gameplay (Cockpit Scene + HUD + In-World Terminal) */}
+          <Route path="/mission/:moduleId/:missionId" element={<MissionPage />} />
+
+          {/* Backward compatibility redirects for legacy routes */}
+          <Route path="/workspace" element={<Navigate to="/mission/flight-101/01" replace />} />
+          <Route path="/session" element={<Navigate to="/modules" replace />} />
+          <Route path="/dashboard" element={<Navigate to="/modules" replace />} />
+
+          {/* Catch-all route */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </AuthProvider>
     </BrowserRouter>
   );

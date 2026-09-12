@@ -11,12 +11,18 @@
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
+    "@react-three/drei": "10.7.8",
+    "@react-three/fiber": "9.7.0",
     "@tailwindcss/vite": "^4.2.2",
+    "agora-agent-client-toolkit": "^1.2.0",
+    "agora-rtc-sdk-ng": "^4.24.8",
+    "agora-rtm": "^2.3.0",
     "framer-motion": "^12.38.0",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
     "react-router-dom": "^7.13.2",
-    "tailwindcss": "^4.2.2"
+    "tailwindcss": "^4.2.2",
+    "three": "0.186.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

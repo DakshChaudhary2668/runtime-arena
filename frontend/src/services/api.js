@@ -98,11 +98,47 @@ export async function getStudent(name) {
 
 /* ── Code Execution ── */
 
-export async function executeCode(code, languageId = 71, student = '') {
+export async function executeCode(code, languageId = 71, student = '', telemetry = {}) {
   return apiFetch(`${API_BASE}/execute`, {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify({ code, language_id: languageId, student }),
+    body: JSON.stringify({ code, language_id: languageId, student, ...telemetry }),
+  });
+}
+
+export async function getPlayerAnalytics(userId) {
+  return apiFetch(`${API_BASE}/analytics/${encodeURIComponent(userId)}`, {
+    headers: authHeaders(),
+  });
+}
+
+/* ── AI Game Director & optional Agora voice ── */
+
+export async function requestDirectorHint(payload) {
+  return apiFetch(`${API_BASE}/director/hint`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getVoiceConfig() {
+  return apiFetch(`${API_BASE}/voice/config`, { headers: authHeaders() });
+}
+
+export async function startVoiceAgent(payload) {
+  return apiFetch(`${API_BASE}/voice/start`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function stopVoiceAgent(agentId) {
+  return apiFetch(`${API_BASE}/voice/stop`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ agent_id: agentId }),
   });
 }
 

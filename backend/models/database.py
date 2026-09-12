@@ -160,6 +160,34 @@ def init_db():
                 logged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS failed_execution_log (
+                id SERIAL PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                student_name TEXT NOT NULL,
+                module_id TEXT NOT NULL,
+                mission_id TEXT NOT NULL,
+                status TEXT DEFAULT 'Error',
+                logged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS mission_completion (
+                id SERIAL PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                student_name TEXT NOT NULL,
+                module_id TEXT NOT NULL,
+                mission_id TEXT NOT NULL,
+                topic TEXT DEFAULT '',
+                attempts INTEGER DEFAULT 1,
+                hint_level INTEGER DEFAULT 0,
+                xp_earned INTEGER DEFAULT 0,
+                xp_deducted INTEGER DEFAULT 0,
+                time_seconds INTEGER DEFAULT 0,
+                completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, module_id, mission_id)
+            )
+        """)
     else:
         # SQLite DDL
         cur.executescript("""
@@ -207,6 +235,32 @@ def init_db():
                 keystrokes INTEGER NOT NULL,
                 activity TEXT DEFAULT 'idle',
                 logged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS failed_execution_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                student_name TEXT NOT NULL,
+                module_id TEXT NOT NULL,
+                mission_id TEXT NOT NULL,
+                status TEXT DEFAULT 'Error',
+                logged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS mission_completion (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                student_name TEXT NOT NULL,
+                module_id TEXT NOT NULL,
+                mission_id TEXT NOT NULL,
+                topic TEXT DEFAULT '',
+                attempts INTEGER DEFAULT 1,
+                hint_level INTEGER DEFAULT 0,
+                xp_earned INTEGER DEFAULT 0,
+                xp_deducted INTEGER DEFAULT 0,
+                time_seconds INTEGER DEFAULT 0,
+                completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, module_id, mission_id)
             );
         """)
 
@@ -431,6 +485,111 @@ def get_keystroke_history(student_name: str = None, limit: int = 50) -> list:
         )
     conn.close()
     return rows
+
+
+def record_failed_execution(user_id: str, student_name: str, module_id: str, mission_id: str, status: str):
+    """Append one failed mission execution for single-player analytics."""
+    with _db_lock:
+        conn = get_db()
+        _execute(conn,
+            f"""INSERT INTO failed_execution_log
+               (user_id, student_name, module_id, mission_id, status)
+               VALUES ({_ph(5)})""",
+            (user_id, student_name, module_id, mission_id, status),
+        )
+        conn.commit()
+        conn.close()
+
+
+def record_mission_completion(
+    user_id: str,
+    student_name: str,
+    module_id: str,
+    mission_id: str,
+    topic: str,
+    attempts: int,
+    hint_level: int,
+    xp_earned: int,
+    xp_deducted: int,
+    time_seconds: int,
+):
+    """Store the latest clear for a mission without duplicating repeat runs."""
+    with _db_lock:
+        conn = get_db()
+        if _use_postgres:
+            sql = f"""INSERT INTO mission_completion
+                (user_id, student_name, module_id, mission_id, topic, attempts,
+                 hint_level, xp_earned, xp_deducted, time_seconds)
+                VALUES ({_ph(10)})
+                ON CONFLICT (user_id, module_id, mission_id) DO UPDATE SET
+                  student_name = EXCLUDED.student_name,
+                  topic = EXCLUDED.topic,
+                  attempts = EXCLUDED.attempts,
+                  hint_level = EXCLUDED.hint_level,
+                  xp_earned = EXCLUDED.xp_earned,
+                  xp_deducted = EXCLUDED.xp_deducted,
+                  time_seconds = EXCLUDED.time_seconds,
+                  completed_at = CURRENT_TIMESTAMP"""
+        else:
+            sql = f"""INSERT INTO mission_completion
+                (user_id, student_name, module_id, mission_id, topic, attempts,
+                 hint_level, xp_earned, xp_deducted, time_seconds)
+                VALUES ({_ph(10)})
+                ON CONFLICT(user_id, module_id, mission_id) DO UPDATE SET
+                  student_name = excluded.student_name,
+                  topic = excluded.topic,
+                  attempts = excluded.attempts,
+                  hint_level = excluded.hint_level,
+                  xp_earned = excluded.xp_earned,
+                  xp_deducted = excluded.xp_deducted,
+                  time_seconds = excluded.time_seconds,
+                  completed_at = CURRENT_TIMESTAMP"""
+        _execute(conn, sql, (
+            user_id, student_name, module_id, mission_id, topic, attempts,
+            hint_level, xp_earned, xp_deducted, time_seconds,
+        ))
+        conn.commit()
+        conn.close()
+
+
+def get_player_analytics(user_id: str) -> dict:
+    """Aggregate read-only mission telemetry for one player."""
+    conn = get_db()
+    missions = _fetchall(conn,
+        f"""SELECT module_id, mission_id, topic, attempts, hint_level,
+                   xp_earned, xp_deducted, time_seconds, completed_at
+            FROM mission_completion
+            WHERE user_id = {_ph()}
+            ORDER BY completed_at ASC""",
+        (user_id,),
+    )
+    failures = _fetchone(conn,
+        f"SELECT COUNT(*) AS total FROM failed_execution_log WHERE user_id = {_ph()}",
+        (user_id,),
+    )
+    keys = _fetchone(conn,
+        f"""SELECT COALESCE(SUM(k.keystrokes), 0) AS total
+            FROM keystroke_log k
+            JOIN mission_completion m ON m.student_name = k.student_name
+            WHERE m.user_id = {_ph()}""",
+        (user_id,),
+    ) if missions else {"total": 0}
+    conn.close()
+
+    completed = len(missions)
+    total_attempts = sum(int(row.get("attempts") or 0) for row in missions)
+    total_hints = sum(int(row.get("hint_level") or 0) for row in missions)
+    return {
+        "user_id": user_id,
+        "completed_missions": completed,
+        "total_attempts": total_attempts,
+        "average_hint_level": round(total_hints / completed, 1) if completed else 0,
+        "xp_earned": sum(int(row.get("xp_earned") or 0) for row in missions),
+        "xp_deducted": sum(int(row.get("xp_deducted") or 0) for row in missions),
+        "failed_executions": int((failures or {}).get("total") or 0),
+        "keystrokes": int((keys or {}).get("total") or 0),
+        "missions": missions,
+    }
 
 
 # ═══════════════════════════════════════════

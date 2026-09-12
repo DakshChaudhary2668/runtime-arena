@@ -15,9 +15,8 @@ from config import Config
 from routes.auth import auth_bp
 from routes.students import students_bp
 from routes.execute import execute_bp
-from routes.dashboard import dashboard_bp
-from routes.ai_insights import ai_insights_bp
-from routes.session import session_bp
+from routes.voice import voice_bp
+from routes.analytics import analytics_bp
 
 # Import database
 from models.database import init_db, seed_users, seed_students
@@ -28,7 +27,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
-logger = logging.getLogger("teamfit")
+logger = logging.getLogger("runtime-arena")
 
 
 def create_app():
@@ -47,13 +46,12 @@ def create_app():
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
 
-    # ── Register all blueprints under /api ──
+    # ── Register active blueprints under /api ──
     app.register_blueprint(auth_bp, url_prefix="/api")
     app.register_blueprint(students_bp, url_prefix="/api")
     app.register_blueprint(execute_bp, url_prefix="/api")
-    app.register_blueprint(dashboard_bp, url_prefix="/api")
-    app.register_blueprint(ai_insights_bp, url_prefix="/api")
-    app.register_blueprint(session_bp, url_prefix="/api")
+    app.register_blueprint(voice_bp, url_prefix="/api")
+    app.register_blueprint(analytics_bp, url_prefix="/api")
 
     # ── Health check ──
     @app.route("/api/health")
