@@ -36,8 +36,11 @@ class Config:
     AGORA_APP_CERTIFICATE = os.environ.get("AGORA_APP_CERTIFICATE", "")
     AGORA_CUSTOMER_ID = os.environ.get("AGORA_CUSTOMER_ID", "")
     AGORA_CUSTOMER_SECRET = os.environ.get("AGORA_CUSTOMER_SECRET", "")
+    AGORA_PIPELINE_ID = os.environ.get("AGORA_PIPELINE_ID", "")
+    AGORA_CHANNEL = os.environ.get("AGORA_CHANNEL", "")
+    AGORA_AGENT_UID = os.environ.get("AGORA_AGENT_UID", "1001")
+    AGORA_TOKEN = os.environ.get("AGORA_TOKEN", "")
     AGORA_AREA = os.environ.get("AGORA_AREA", "AP").upper()
-    AGORA_AGENT_UID = os.environ.get("AGORA_AGENT_UID", "123456")
 
     # ── Code Execution ──
     JUDGE0_API_KEY = os.environ.get("JUDGE0_API_KEY", "")

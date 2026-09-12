@@ -1,6 +1,8 @@
 import {
   getVoiceConfig,
   startVoiceAgent,
+  updateVoiceContext,
+  speakVoiceAgent,
   stopVoiceAgent,
 } from './api';
 
@@ -54,7 +56,7 @@ async function safeCleanup(resources) {
  *
  * Preserves text-only AI Director fallback without throwing unhandled exceptions.
  */
-export async function connectAgoraVoice({ mission, hintLevel, onTranscript, onState }) {
+export async function connectAgoraVoice({ mission, hintLevel, context, onTranscript, onState }) {
   const resources = {};
   try {
     onState?.('CONNECTING');
@@ -144,7 +146,10 @@ export async function connectAgoraVoice({ mission, hintLevel, onTranscript, onSt
     rtcClient.on('user-published', async (user, mediaType) => {
       try {
         await rtcClient.subscribe(user, mediaType);
-        if (mediaType === 'audio') user.audioTrack?.play();
+        if (mediaType === 'audio') {
+          user.audioTrack?.play();
+          console.debug('[Voice] Remote audio track active from agent UID:', user.uid);
+        }
       } catch (error) {
         console.warn('[Agora Voice] Remote audio subscribe failed:', error);
       }
@@ -152,7 +157,7 @@ export async function connectAgoraVoice({ mission, hintLevel, onTranscript, onSt
 
     try {
       await withTimeout(
-        rtcClient.join(config.app_id, config.channel, config.token, Number(config.uid)),
+        rtcClient.join(config.app_id, config.channel, config.token, Number(config.uid) || 0),
         8000,
         'Voice channel join',
       );
@@ -161,55 +166,67 @@ export async function connectAgoraVoice({ mission, hintLevel, onTranscript, onSt
       console.warn('[Voice] Agora RTC join failed:', joinErr);
       await safeCleanup(resources);
       onState?.('OFF');
+      const isExpired = joinErr.message?.toLowerCase().includes('expired') || joinErr.code === 'DYNAMIC_KEY_TIMEOUT';
       return {
         ok: false,
-        reason: 'AGORA_CONNECTION_FAILED',
+        reason: isExpired ? 'TOKEN_EXPIRED' : 'AGORA_CONNECTION_FAILED',
         message: joinErr.message || 'Failed to join Agora audio channel.',
       };
     }
 
-    console.debug('[Voice] Initializing RTM signaling for agent transcripts...');
+    // Enable audio volume detection for dynamic HUD states (LISTENING / SPEAKING / THINKING)
     try {
-      const rtmClient = new AgoraRTM.RTM(config.app_id, config.uid);
-      resources.rtmClient = rtmClient;
-      await withTimeout(rtmClient.login({ token: config.token }), 8000, 'Voice signaling login');
-      await withTimeout(rtmClient.subscribe(config.channel), 5000, 'Voice transcript subscription');
-      console.debug('[Voice] RTM signaling logged in and subscribed');
-    } catch (rtmErr) {
-      console.warn('[Voice] Agora RTM signaling setup failed:', rtmErr);
-      await safeCleanup(resources);
-      onState?.('OFF');
-      return {
-        ok: false,
-        reason: 'AGORA_SIGNALING_FAILED',
-        message: rtmErr.message || 'Failed to establish Agora signaling link.',
-      };
+      rtcClient.enableAudioVolumeIndicator();
+      rtcClient.on('volume-indicator', (volumes) => {
+        const remoteVolume = volumes.find((v) => String(v.uid) !== String(config.uid) && v.level > 10);
+        const localVolume = volumes.find((v) => String(v.uid) === String(config.uid) && v.level > 15);
+        if (remoteVolume) {
+          onState?.('SPEAKING');
+        } else if (localVolume) {
+          onState?.('THINKING');
+        } else {
+          onState?.('LISTENING');
+        }
+      });
+    } catch (volErr) {
+      console.debug('[Voice] Volume indicator initialization skipped:', volErr);
     }
 
-    const ai = await toolkit.AgoraVoiceAI.init({
-      rtcEngine: rtcClient,
-      rtmConfig: { rtmEngine: resources.rtmClient },
-      renderMode: toolkit.TranscriptHelperMode.TEXT,
-      enableLog: false,
-    });
-    resources.ai = ai;
+    // Signaling / transcripts (best-effort)
+    try {
+      const rtmClient = new AgoraRTM.RTM(config.app_id, String(config.uid));
+      resources.rtmClient = rtmClient;
+      await withTimeout(rtmClient.login({ token: config.token }), 5000, 'Voice signaling login');
+      await withTimeout(rtmClient.subscribe(config.channel), 4000, 'Voice transcript subscription');
+      console.debug('[Voice] RTM signaling subscribed');
 
-    const deliveredTurns = new Set();
-    ai.on(toolkit.AgoraVoiceAIEvents.TRANSCRIPT_UPDATED, (transcript) => {
-      const completedAgentTurns = transcript.filter((item) =>
-        item.uid !== '0' &&
-        item.text?.trim() &&
-        item.status !== toolkit.TurnStatus.IN_PROGRESS
-      );
-      const latest = completedAgentTurns.at(-1);
-      if (!latest || deliveredTurns.has(latest.turn_id)) return;
-      deliveredTurns.add(latest.turn_id);
-      onTranscript?.(latest.text.trim());
-    });
-    ai.on(toolkit.AgoraVoiceAIEvents.AGENT_STATE_CHANGED, (_, event) => {
-      onState?.((event.state || 'LISTENING').toUpperCase());
-    });
-    ai.subscribeMessage(config.channel);
+      const ai = await toolkit.AgoraVoiceAI.init({
+        rtcEngine: rtcClient,
+        rtmConfig: { rtmEngine: resources.rtmClient },
+        renderMode: toolkit.TranscriptHelperMode.TEXT,
+        enableLog: false,
+      });
+      resources.ai = ai;
+
+      const deliveredTurns = new Set();
+      ai.on(toolkit.AgoraVoiceAIEvents.TRANSCRIPT_UPDATED, (transcript) => {
+        const completedAgentTurns = transcript.filter((item) =>
+          item.uid !== '0' &&
+          item.text?.trim() &&
+          item.status !== toolkit.TurnStatus.IN_PROGRESS
+        );
+        const latest = completedAgentTurns.at(-1);
+        if (!latest || deliveredTurns.has(latest.turn_id)) return;
+        deliveredTurns.add(latest.turn_id);
+        onTranscript?.(latest.text.trim());
+      });
+      ai.on(toolkit.AgoraVoiceAIEvents.AGENT_STATE_CHANGED, (_, event) => {
+        onState?.((event.state || 'LISTENING').toUpperCase());
+      });
+      ai.subscribeMessage(config.channel);
+    } catch (rtmErr) {
+      console.debug('[Voice] RTM signaling optional init notice (continuing audio):', rtmErr?.message);
+    }
 
     console.debug('[Voice] Publishing local microphone audio track...');
     const micTrack = await withTimeout(
@@ -221,12 +238,13 @@ export async function connectAgoraVoice({ mission, hintLevel, onTranscript, onSt
     await rtcClient.publish(micTrack);
     console.debug('[Voice] Local microphone published to channel');
 
-    console.debug('[Voice] Initiating cloud Conversational AI agent session...');
+    console.debug('[Voice] Initiating cloud Conversational AI agent session with telemetry context...');
     let started;
     try {
       started = await withTimeout(startVoiceAgent({
         channel: config.channel,
         uid: config.uid,
+        context: context || {},
         mission: {
           id: mission?.id,
           title: mission?.title,
@@ -250,9 +268,10 @@ export async function connectAgoraVoice({ mission, hintLevel, onTranscript, onSt
       console.warn('[Voice] Agent session returned unavailable:', started);
       await safeCleanup(resources);
       onState?.('OFF');
+      const isExpired = started?.message?.includes('401') || started?.message?.toLowerCase().includes('expired');
       return {
         ok: false,
-        reason: started?.reason || 'AGENT_SESSION_FAILED',
+        reason: isExpired ? 'TOKEN_EXPIRED' : (started?.reason || 'AGENT_SESSION_FAILED'),
         message: started?.message || 'Agent session could not be started.',
       };
     }
@@ -268,10 +287,29 @@ export async function connectAgoraVoice({ mission, hintLevel, onTranscript, onSt
         get muted() {
           return muted;
         },
+        get agentId() {
+          return resources.agentId;
+        },
         async setMuted(nextMuted) {
           await micTrack.setEnabled(!nextMuted);
           muted = nextMuted;
           onState?.(muted ? 'MUTED' : 'LISTENING');
+        },
+        async updateContext(newContext) {
+          if (resources.agentId) {
+            console.debug('[Voice] Syncing gameplay telemetry to voice agent...');
+            await updateVoiceContext(resources.agentId, newContext).catch((err) => {
+              console.warn('[Voice] Context update failed (non-blocking):', err);
+            });
+          }
+        },
+        async speak(text) {
+          if (resources.agentId) {
+            console.debug('[Voice] Broadcasting in-world voice speech:', text);
+            await speakVoiceAgent(resources.agentId, text).catch((err) => {
+              console.warn('[Voice] Speak trigger failed (non-blocking):', err);
+            });
+          }
         },
         async stop() {
           onState?.('OFF');
@@ -279,6 +317,7 @@ export async function connectAgoraVoice({ mission, hintLevel, onTranscript, onSt
         },
       },
     };
+
   } catch (error) {
     console.warn('[Agora Voice] Unexpected error in voice pipeline:', error);
     onState?.('OFF');

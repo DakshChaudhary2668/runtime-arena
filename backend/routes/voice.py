@@ -33,19 +33,37 @@ def voice_config():
 @voice_bp.route("/voice/start", methods=["POST"])
 def voice_start():
     data = request.get_json(silent=True) or {}
-    if not data.get("channel") or not data.get("uid"):
-        return jsonify({
-            "available": False,
-            "reason": "INVALID_PARAMS",
-            "message": "channel and uid are required",
-            "fallback": "text",
-        }), 400
     return jsonify(start_voice_session(
-        channel=data["channel"],
-        user_uid=data["uid"],
+        channel=data.get("channel"),
+        user_uid=data.get("uid"),
         mission=data.get("mission") or {},
         hint_level=int(data.get("hint_level", 0)),
+        context=data.get("context") or {},
     ))
+
+
+@voice_bp.route("/voice/context", methods=["POST"])
+def voice_context():
+    data = request.get_json(silent=True) or {}
+    agent_id = data.get("agent_id")
+    context = data.get("context") or {}
+    success = False
+    if agent_id:
+        from services.voice_agent import update_voice_context
+        success = update_voice_context(agent_id, context)
+    return jsonify({"updated": success})
+
+
+@voice_bp.route("/voice/speak", methods=["POST"])
+def voice_speak():
+    data = request.get_json(silent=True) or {}
+    agent_id = data.get("agent_id")
+    text = data.get("text", "")
+    success = False
+    if agent_id and text:
+        from services.voice_agent import speak_voice_agent
+        success = speak_voice_agent(agent_id, text)
+    return jsonify({"spoken": success})
 
 
 @voice_bp.route("/voice/stop", methods=["POST"])

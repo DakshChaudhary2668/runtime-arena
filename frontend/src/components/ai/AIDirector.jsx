@@ -104,9 +104,28 @@ export default function AIDirector({
         </div>
       </form>
 
-      <div className="mt-2 flex justify-between font-mono text-[9px] tracking-wider text-[#B8BAB9]">
+      <div className="mt-2 flex justify-between items-center font-mono text-[9px] tracking-wider text-[#B8BAB9]">
         <span>HINT COST: -15 XP</span>
-        <span>VOICE: {voiceState}</span>
+        <span className="flex items-center gap-1.5">
+          <span
+            className={`inline-block w-1.5 h-1.5 rounded-full ${
+              voiceState === 'LISTENING'
+                ? 'bg-[#30D158] animate-pulse'
+                : voiceState === 'SPEAKING'
+                ? 'bg-[#0A84FF] animate-pulse'
+                : voiceState === 'THINKING'
+                ? 'bg-[#FFD60A] animate-pulse'
+                : voiceState === 'CONNECTING'
+                ? 'bg-[#FF9F0A] animate-pulse'
+                : voiceState === 'MUTED'
+                ? 'bg-[#FF453A]'
+                : voiceState === 'OFF'
+                ? 'bg-[#636366]'
+                : 'bg-[#FF453A]'
+            }`}
+          />
+          VOICE: {voiceState}
+        </span>
       </div>
     </div>
   );

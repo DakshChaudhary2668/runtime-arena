@@ -134,6 +134,22 @@ export async function startVoiceAgent(payload) {
   });
 }
 
+export async function updateVoiceContext(agentId, context) {
+  return apiFetch(`${API_BASE}/voice/context`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ agent_id: agentId, context }),
+  });
+}
+
+export async function speakVoiceAgent(agentId, text) {
+  return apiFetch(`${API_BASE}/voice/speak`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ agent_id: agentId, text }),
+  });
+}
+
 export async function stopVoiceAgent(agentId) {
   return apiFetch(`${API_BASE}/voice/stop`, {
     method: 'POST',

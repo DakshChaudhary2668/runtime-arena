@@ -4,6 +4,7 @@ import { getScenario, getMission } from '../data/scenarios';
 import { useAuth } from '../context/AuthContext';
 import { executeCode, requestDirectorHint, updateKeystrokes } from '../services/api';
 import { connectAgoraVoice } from '../services/voiceAgent';
+import { buildDirectorContext } from '../utils/directorContext';
 
 import SceneView from '../components/game/SceneView';
 import GameHUD from '../components/game/GameHUD';
@@ -155,11 +156,27 @@ export default function MissionPage() {
       const hasStdErr = result.stderr && result.stderr.trim().length > 0;
       const isAccepted = result.status === 'Accepted' && !hasStdErr;
 
+      const currentContext = buildDirectorContext({
+        user,
+        scenario,
+        mission,
+        attempts: projectedAttempts,
+        hintLevel,
+        lastExecution: result,
+      });
+      if (voiceSessionRef.current) {
+        voiceSessionRef.current.updateContext(currentContext);
+      }
+
       if (isAccepted) {
         // Mission Accomplished!
         setAiState('RESOLVED');
         setAiMessage(mission?.aiResponses?.recovery || 'Sequence verified. Airframe stabilized.');
         setEmergency(false);
+
+        if (voiceSessionRef.current) {
+          voiceSessionRef.current.speak('Stabilization sequence accepted. Power grid restored. Outstanding work, Pilot.');
+        }
 
         // Calculate time taken
         const m = Math.floor(elapsedSecs / 60).toString().padStart(2, '0');
@@ -186,13 +203,24 @@ export default function MissionPage() {
         }
       }
     } catch (err) {
-      setOutput({
+      const errorResult = {
         stdout: '',
         stderr: err.message || 'Transmission disrupted. Check arena connection.',
         status: 'Error',
         time: '0.00',
         memory: '0',
-      });
+      };
+      setOutput(errorResult);
+      if (voiceSessionRef.current) {
+        voiceSessionRef.current.updateContext(buildDirectorContext({
+          user,
+          scenario,
+          mission,
+          attempts: attempts + 1,
+          hintLevel,
+          lastExecution: errorResult,
+        }));
+      }
       setShaking(true);
       setTimeout(() => setShaking(false), 450);
       setAiState('ATTENTION');
@@ -219,14 +247,37 @@ export default function MissionPage() {
         hint_level: hintLevel,
         fallback,
       });
-      setHintLevel((prev) => Math.min(prev + 1, 3));
+      const nextHint = Math.min(hintLevel + 1, 3);
+      setHintLevel(nextHint);
       setAiState('INTERVENTION');
       setAiMessage(result?.message || fallback);
+
+      if (voiceSessionRef.current) {
+        voiceSessionRef.current.updateContext(buildDirectorContext({
+          user,
+          scenario,
+          mission,
+          attempts,
+          hintLevel: nextHint,
+          lastExecution: output,
+        }));
+      }
     } catch (error) {
       console.warn('AI Director network hint unavailable; using mission hint:', error);
-      setHintLevel((prev) => Math.min(prev + 1, 3));
+      const nextHint = Math.min(hintLevel + 1, 3);
+      setHintLevel(nextHint);
       setAiState('INTERVENTION');
       setAiMessage(fallback);
+      if (voiceSessionRef.current) {
+        voiceSessionRef.current.updateContext(buildDirectorContext({
+          user,
+          scenario,
+          mission,
+          attempts,
+          hintLevel: nextHint,
+          lastExecution: output,
+        }));
+      }
     } finally {
       setAskingAI(false);
     }
@@ -234,6 +285,8 @@ export default function MissionPage() {
 
   const formatVoiceErrorBadge = (reason) => {
     switch (reason) {
+      case 'TOKEN_EXPIRED':
+        return 'TOKEN EXPIRED';
       case 'VOICE_CONFIG_MISSING':
         return 'CONFIG MISSING';
       case 'LLM_CONFIG_MISSING':
@@ -269,9 +322,19 @@ export default function MissionPage() {
       return;
     }
 
+    const currentContext = buildDirectorContext({
+      user,
+      scenario,
+      mission,
+      attempts,
+      hintLevel,
+      lastExecution: output,
+    });
+
     const result = await connectAgoraVoice({
       mission,
       hintLevel,
+      context: currentContext,
       onState: setVoiceState,
       onTranscript: (message) => {
         setHintLevel((prev) => Math.min(prev + 1, 3));
@@ -288,6 +351,17 @@ export default function MissionPage() {
       window.setTimeout(() => setVoiceState('OFF'), 2200);
     }
   };
+
+  // Clean lifecycle on unmount or navigation
+  useEffect(() => {
+    return () => {
+      if (voiceSessionRef.current) {
+        console.debug('[Voice] Disconnecting session on mission navigation/unmount');
+        voiceSessionRef.current.stop();
+        voiceSessionRef.current = null;
+      }
+    };
+  }, [moduleId, missionId]);
 
   // Next Mission Navigation
   const nextMissionNum = parseInt(mission?.number || '1', 10) + 1;
