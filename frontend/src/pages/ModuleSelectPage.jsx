@@ -100,6 +100,12 @@ export default function ModuleSelectPage() {
             <div className="flex items-center gap-3">
               <span className="text-white">PILOT: <span className="text-amber-400 font-bold">{user.name}</span></span>
               <button
+                onClick={() => navigate('/dashboard')}
+                className="rt-control-gamified px-2.5 py-1 text-[10px] text-[#00F0FF] border-[#00F0FF]/50 cursor-pointer transition-all hover:bg-[#00F0FF]/20"
+              >
+                [ PROFILE DASHBOARD ]
+              </button>
+              <button
                 onClick={logout}
                 className="rt-control-gamified px-2.5 py-1 text-[10px] text-white cursor-pointer transition-all hover:bg-red-900/20 hover:border-red-500"
               >

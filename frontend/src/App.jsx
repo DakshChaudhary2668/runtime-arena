@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage';
 import ModuleSelectPage from './pages/ModuleSelectPage';
 import MissionPage from './pages/MissionPage';
 import SpaceRescueComingSoon from './pages/SpaceRescueComingSoon';
+import DashboardPage from './pages/DashboardPage';
 
 export default function App() {
   return (
@@ -18,6 +19,11 @@ export default function App() {
 
           {/* Pilot Access Terminal */}
           <Route path="/login" element={<LoginPage />} />
+
+          {/* Real-time Operations Overview & Profile Dashboard */}
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/profile" element={<DashboardPage />} />
+          <Route path="/operations" element={<DashboardPage />} />
 
           {/* Module & Sector Selection Deck */}
           <Route path="/modules" element={<ModuleSelectPage />} />
@@ -32,7 +38,6 @@ export default function App() {
           {/* Backward compatibility redirects for legacy routes */}
           <Route path="/workspace" element={<Navigate to="/mission/flight-101/01" replace />} />
           <Route path="/session" element={<Navigate to="/modules" replace />} />
-          <Route path="/dashboard" element={<Navigate to="/modules" replace />} />
 
           {/* Catch-all route */}
           <Route path="*" element={<Navigate to="/" replace />} />

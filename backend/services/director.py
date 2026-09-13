@@ -48,6 +48,56 @@ def generate_hint(question, mission=None, code="", hint_level=0, fallback=""):
     return fallback or "Trace the state change one step at a time and verify the value you update before advancing."
 
 
+def generate_director_observation(analytics, custom_groq_key=None):
+    """Generate dynamic AI Game Director neural telemetry observation using Groq API."""
+    fallback = (
+        'SYS_DIRECTOR_OBSERVATION: "Strong performance in pointer-based problems. '
+        'Graph traversal attempts show hesitation under time pressure. '
+        'Recommended next focus: BFS pathfinding & queue-based state trees."'
+    )
+    groq_key = custom_groq_key or Config.GROQ_API_KEY
+    system_prompt = (
+        "You are the RunTime Arena AI Game Director. Analyze the pilot's coding telemetry. "
+        "Output ONLY a single observation starting with 'SYS_DIRECTOR_OBSERVATION: \"' and ending with '\"'. "
+        "Keep it 2 concise sentences: state one observed operational strength and recommend one specific algorithm or data structure focus."
+    )
+    user_payload = (
+        f"Pilot analytics: Completed missions: {analytics.get('completed_missions', 8)}; "
+        f"Total XP: {analytics.get('total_xp', 1840)}; "
+        f"Success rate: {analytics.get('success_rate', 78)}%; "
+        f"Avg attempts: {analytics.get('avg_attempts', 2.4)}; "
+        f"AI interventions: {analytics.get('ai_interventions', 5)}; "
+        f"Skill matrix: {analytics.get('skill_matrix', {})}; "
+        f"Recent failures: {analytics.get('failed_executions', 1)}."
+    )
+
+    if groq_key:
+        try:
+            res = _groq_hint(system_prompt, user_payload, api_key=groq_key)
+            if res and "SYS_DIRECTOR_OBSERVATION" in res:
+                return res.strip()
+            elif res:
+                return f'SYS_DIRECTOR_OBSERVATION: "{res.strip().strip(chr(34))}"'
+        except Exception as exc:
+            logger.warning("Groq observation failed: %s", exc)
+
+    # Fallback to provider chain
+    providers = (
+        _gemini_hint if Config.GEMINI_API_KEY else None,
+        _ollama_hint,
+    )
+    for provider in providers:
+        if provider:
+            try:
+                res = provider(system_prompt, user_payload)
+                if res:
+                    return f'SYS_DIRECTOR_OBSERVATION: "{res.strip().strip(chr(34))}"'
+            except Exception:
+                pass
+
+    return fallback
+
+
 def generate_performance_summary(analytics):
     """Use the same provider chain for a short, non-competitive player summary."""
     fallback = _fallback_performance_summary(analytics)
@@ -67,9 +117,9 @@ def generate_performance_summary(analytics):
         f"{analytics.get('missions', [])}."
     )
     providers = (
+        _groq_hint if Config.GROQ_API_KEY else None,
         _ollama_hint,
         _gemini_hint if Config.GEMINI_API_KEY else None,
-        _groq_hint if Config.GROQ_API_KEY else None,
     )
     for provider in providers:
         if provider is None:
@@ -131,10 +181,13 @@ def _gemini_hint(system_prompt, question):
     return " ".join(part.get("text", "") for part in parts)
 
 
-def _groq_hint(system_prompt, question):
+def _groq_hint(system_prompt, question, api_key=None):
     from groq import Groq
 
-    client = Groq(api_key=Config.GROQ_API_KEY, timeout=6.0, max_retries=0)
+    active_key = api_key or Config.GROQ_API_KEY
+    if not active_key:
+        return ""
+    client = Groq(api_key=active_key, timeout=6.0, max_retries=0)
     completion = client.chat.completions.create(
         model=Config.GROQ_MODEL,
         temperature=0.35,

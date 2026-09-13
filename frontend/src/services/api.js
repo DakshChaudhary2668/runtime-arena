@@ -106,9 +106,18 @@ export async function executeCode(code, languageId = 71, student = '', telemetry
   });
 }
 
-export async function getPlayerAnalytics(userId) {
-  return apiFetch(`${API_BASE}/analytics/${encodeURIComponent(userId)}`, {
-    headers: authHeaders(),
+export async function getPlayerAnalytics(userId, groqKey = '') {
+  const extraHeaders = groqKey ? { 'X-Groq-Api-Key': groqKey } : {};
+  return apiFetch(`${API_BASE}/analytics/${encodeURIComponent(userId || 's2')}`, {
+    headers: authHeaders(extraHeaders),
+  });
+}
+
+export async function requestLiveObservation(userId, groqApiKey = '') {
+  return apiFetch(`${API_BASE}/analytics/observe`, {
+    method: 'POST',
+    headers: authHeaders(groqApiKey ? { 'X-Groq-Api-Key': groqApiKey } : {}),
+    body: JSON.stringify({ user_id: userId, groq_api_key: groqApiKey }),
   });
 }
 
