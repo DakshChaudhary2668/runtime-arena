@@ -5,12 +5,14 @@ import { useAuth } from '../context/AuthContext';
 import { executeCode, requestDirectorHint, updateKeystrokes } from '../services/api';
 import { connectAgoraVoice } from '../services/voiceAgent';
 import { buildDirectorContext } from '../utils/directorContext';
+import { recordLocalCompletion, getLocalProgress } from '../services/progression';
 
 import SceneView from '../components/game/SceneView';
 import GameHUD from '../components/game/GameHUD';
 import SceneNarrative from '../components/game/SceneNarrative';
 import TerminalOverlay from '../components/terminal/TerminalOverlay';
 import MissionDebrief from '../components/progression/MissionDebrief';
+import SimulationStage from '../components/simulation/SimulationStage';
 
 export default function MissionPage() {
   const { moduleId = 'flight-101', missionId = '01' } = useParams();
@@ -44,10 +46,15 @@ export default function MissionPage() {
   const [startTime] = useState(Date.now());
   const [timeTaken, setTimeTaken] = useState('00:00');
 
+  // ── Simulation State ──
+  const [simulationOpen, setSimulationOpen] = useState(false);
+  const [progressMap, setProgressMap] = useState(() => getLocalProgress());
+
   // Keystroke telemetry refs
   const keystrokeRef = useRef(0);
   const lastSyncRef = useRef(0);
   const voiceSessionRef = useRef(null);
+  const executingRef = useRef(false);
 
   // Synchronize when route mission changes
   useEffect(() => {
@@ -60,11 +67,14 @@ export default function MissionPage() {
       setAiMessage(mission.aiResponses?.observing || 'Telemetry nominal.');
       setDebriefOpen(false);
       setTerminalOpen(false);
+      setSimulationOpen(false);
       setEmergency(true);
+      executingRef.current = false;
       voiceSessionRef.current?.stop();
       voiceSessionRef.current = null;
       setVoiceState('OFF');
     }
+    setProgressMap(getLocalProgress());
   }, [moduleId, missionId]);
 
   useEffect(() => () => {
@@ -88,14 +98,35 @@ export default function MissionPage() {
   // Global Keyboard Shortcuts
   useEffect(() => {
     function handleKeyDown(e) {
+      // If simulation is open, ESC closes it
+      if (simulationOpen) {
+        if (e.key === 'Escape') {
+          setSimulationOpen(false);
+        }
+        return;
+      }
+
       // If debrief is open
       if (debriefOpen) {
         if (e.key === 'n' || e.key === 'N') {
           handleNextMission();
         } else if (e.key === 'a' || e.key === 'A' || e.key === 'Escape') {
           navigate('/modules');
+        } else if (e.key === 's' || e.key === 'S') {
+          setSimulationOpen(true);
         }
         return;
+      }
+
+      // Intercept Ctrl+Enter / Cmd+Enter to execute when terminal is open
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        if (terminalOpen) {
+          e.preventDefault();
+          if (!executingRef.current) {
+            handleRunCode();
+          }
+          return;
+        }
       }
 
       // If user is inside Monaco editor, don't hijack typing keys
@@ -111,6 +142,8 @@ export default function MissionPage() {
       } else if (!isInEditor) {
         if ((e.key === 'f' || e.key === 'F') && !terminalOpen) {
           setTerminalOpen(true);
+        } else if ((e.key === 's' || e.key === 'S') && !terminalOpen && moduleId === 'flight-101') {
+          setSimulationOpen(true);
         } else if (e.key === 'a' || e.key === 'A') {
           navigate('/modules');
         }
@@ -119,7 +152,7 @@ export default function MissionPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [terminalOpen, debriefOpen, navigate]);
+  }, [terminalOpen, debriefOpen, simulationOpen, navigate, moduleId]);
 
   // Code editor change
   const handleEditorChange = (value) => {
@@ -130,8 +163,9 @@ export default function MissionPage() {
 
   // Run Code Execution
   const handleRunCode = async () => {
-    if (!code.trim()) return;
+    if (!code.trim() || executingRef.current) return;
 
+    executingRef.current = true;
     setRunning(true);
     setAttempts((prev) => prev + 1);
 
@@ -140,8 +174,10 @@ export default function MissionPage() {
       const elapsedSecs = Math.floor((Date.now() - startTime) / 1000);
       const projectedAttempts = attempts + 1;
       const projectedXp = Math.max(100, 250 - (projectedAttempts - 1) * 25 - hintLevel * 15);
-      const result = await executeCode(code, 71, studentName, {
-        user_id: user?.id || studentName,
+      const langId = mission?.languageId || (scenario?.track === 'SQL' ? 82 : 71);
+      const effectiveUserId = user?.id ? String(user.id) : (user?.email || studentName || 'guest');
+      const result = await executeCode(code, langId, studentName, {
+        user_id: effectiveUserId,
         module_id: moduleId,
         mission_id: missionId,
         topic: mission?.topic || '',
@@ -154,7 +190,9 @@ export default function MissionPage() {
       setOutput(result);
 
       const hasStdErr = result.stderr && result.stderr.trim().length > 0;
-      const isAccepted = result.status === 'Accepted' && !hasStdErr;
+      const isAccepted = moduleId === 'flight-101'
+        ? result.passed === true
+        : result.status === 'Accepted' && !hasStdErr;
 
       const currentContext = buildDirectorContext({
         user,
@@ -170,6 +208,7 @@ export default function MissionPage() {
 
       if (isAccepted) {
         // Mission Accomplished!
+        recordLocalCompletion(moduleId, missionId);
         setAiState('RESOLVED');
         setAiMessage(mission?.aiResponses?.recovery || 'Sequence verified. Airframe stabilized.');
         setEmergency(false);
@@ -226,6 +265,7 @@ export default function MissionPage() {
       setAiState('ATTENTION');
       setAiMessage('Emergency network link timeout. Local telemetry isolated.');
     } finally {
+      executingRef.current = false;
       setRunning(false);
     }
   };
@@ -404,6 +444,7 @@ export default function MissionPage() {
           moduleTitle={scenario.title}
           mission={mission}
           onOpenTerminal={() => setTerminalOpen(true)}
+          onOpenSimulation={moduleId === 'flight-101' ? () => setSimulationOpen(true) : null}
         />
       </div>
 
@@ -443,6 +484,15 @@ export default function MissionPage() {
         aiDebriefText={mission?.aiResponses?.successDebrief}
         onNextMission={handleNextMission}
         onReturnToDeck={() => navigate('/modules')}
+      />
+
+      {/* ── THREE.JS SIMULATION STAGE ── */}
+      <SimulationStage
+        open={simulationOpen}
+        moduleId={moduleId}
+        unlockedSystems={progressMap[moduleId] || []}
+        missionResults={{}}
+        onClose={() => setSimulationOpen(false)}
       />
     </SceneView>
   );

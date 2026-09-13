@@ -5,6 +5,7 @@ export default function ModuleCard({
   scenario,
   onSelect,
   isLocked = false,
+  isCompleted = false,
   isComingSoon = false,
 }) {
   const isFlight = scenario.id === 'flight-101';
@@ -14,12 +15,16 @@ export default function ModuleCard({
     <div
       className={`group relative flex flex-col justify-between p-6 bg-gradient-to-b from-[#1a1f2e]/60 to-[#08111d]/90 border ${
         isFlight
-          ? 'border-teal-500/60 shadow-[0_0_20px_rgba(20,184,166,0.2)] hover:border-teal-400 hover:shadow-[0_0_30px_rgba(20,184,166,0.4)]'
+          ? isCompleted
+            ? 'border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.15)] hover:border-emerald-400'
+            : 'border-teal-500/60 shadow-[0_0_20px_rgba(20,184,166,0.2)] hover:border-teal-400 hover:shadow-[0_0_30px_rgba(20,184,166,0.4)]'
           : isSpaceRescue
           ? 'border-[#64D2FF]/40 shadow-[0_0_15px_rgba(100,210,255,0.15)] hover:border-[#64D2FF]/60 hover:shadow-[0_0_25px_rgba(100,210,255,0.25)]'
           : isLocked
           ? 'border-neutral-800 opacity-75'
-          : 'border-neutral-700 hover:border-neutral-500'
+          : isCompleted
+          ? 'border-emerald-500/50 hover:border-emerald-400'
+          : 'border-teal-500/50 hover:border-teal-400 shadow-[0_0_15px_rgba(20,184,166,0.2)]'
       } transition-all duration-300 rounded-[12px] overflow-hidden backdrop-blur-md`}
     >
       {/* Flight Module Glow Accent */}
@@ -40,7 +45,9 @@ export default function ModuleCard({
           </span>
           <span
             className={`font-mono text-[9px] px-2 py-0.5 rounded-[4px] tracking-wider uppercase font-bold ${
-              isLocked
+              isCompleted
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                : isLocked
                 ? 'bg-neutral-800 text-neutral-400 border border-neutral-700'
                 : isFlight
                 ? 'bg-red-500/20 text-red-300 border border-red-500/40 animate-pulse'
@@ -49,7 +56,11 @@ export default function ModuleCard({
                 : 'bg-teal-500/20 text-teal-300 border border-teal-500/40'
             }`}
           >
-            {isFlight ? '🚨 CRITICAL' : (scenario.badge || (isLocked ? 'LOCKED' : 'ACTIVE'))}
+            {isCompleted
+              ? '★ COMPLETE'
+              : isFlight
+              ? '🚨 CRITICAL'
+              : (scenario.badge || (isLocked ? 'LOCKED' : 'AVAILABLE'))}
           </span>
         </div>
 
@@ -104,7 +115,11 @@ export default function ModuleCard({
                      text-white shadow-[0_0_15px_rgba(20,184,166,0.3)] hover:shadow-[0_0_25px_rgba(20,184,166,0.6)]
                      flex items-center justify-center gap-2 group-hover:scale-[1.02]"
           >
-            <span>{isFlight ? '⚡ LAUNCH MISSION' : 'ENTER MODULE'}</span>
+            <span>
+              {isFlight
+                ? (isCompleted ? 'REPLAY FLIGHT' : '⚡ LAUNCH MISSION')
+                : (scenario.id === 'vault-breach' ? '⚡ BREACH VAULT' : 'ENTER MODULE')}
+            </span>
             <span className="text-[10px] bg-black/30 px-1.5 py-0.5 rounded border border-white/20">[ENTER]</span>
           </button>
         )}

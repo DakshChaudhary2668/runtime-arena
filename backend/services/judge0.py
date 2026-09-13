@@ -76,32 +76,10 @@ def _mock_execution(source_code: str, language_id: int) -> dict:
     """
     import random
 
-    # ── Python (exec locally) ──
+    # ── Python scratch workspace (always outside the Flask process) ──
     if language_id == 71:
-        try:
-            import io
-            import contextlib
-
-            output = io.StringIO()
-            with contextlib.redirect_stdout(output):
-                exec(source_code, {"__builtins__": __builtins__})
-            stdout = output.getvalue()
-
-            return {
-                "stdout": stdout,
-                "stderr": "",
-                "status": "Accepted",
-                "time": f"{random.uniform(0.01, 0.5):.2f}",
-                "memory": str(random.randint(80, 200)),
-            }
-        except Exception as e:
-            return {
-                "stdout": "",
-                "stderr": str(e),
-                "status": "Runtime Error",
-                "time": "0.01",
-                "memory": "64",
-            }
+        from services.python_sandbox import execute_workspace_python
+        return execute_workspace_python(source_code)
 
     # ── JavaScript (exec via Node if available) ──
     if language_id == 63:
@@ -189,4 +167,3 @@ def _extract_mock_output(source_code: str, language_id: int) -> str:
         return "\n".join(lines) + "\n"
 
     return "Hello, World!\n"
-

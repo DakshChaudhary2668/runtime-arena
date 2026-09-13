@@ -6,6 +6,7 @@ export default function SceneNarrative({
   moduleTitle = 'FLIGHT 101',
   mission = {},
   onOpenTerminal,
+  onOpenSimulation,
   onNarrativeComplete,
 }) {
   return (
@@ -29,7 +30,6 @@ export default function SceneNarrative({
         <TypewriterText
           lines={mission.narrative || []}
           speed={20}
-          onComplete={onNarrativeComplete}
         />
       </div>
 
@@ -43,7 +43,7 @@ export default function SceneNarrative({
         </p>
       </div>
 
-      {/* Primary Action Button */}
+      {/* Action Buttons */}
       <div className="flex flex-wrap items-center gap-4">
         <Button
           onClick={onOpenTerminal}
@@ -53,8 +53,20 @@ export default function SceneNarrative({
         >
           ACCESS TERMINAL
         </Button>
+
+        {onOpenSimulation && (
+          <Button
+            onClick={onOpenSimulation}
+            variant="secondary"
+            shortcut="S"
+            className="w-full sm:w-auto"
+          >
+            ENTER SIMULATION
+          </Button>
+        )}
+
         <span className="text-[10px] font-mono text-[#B8BAB9] tracking-wider hidden sm:inline-block">
-          PRESS [F] TO INITIALIZE MONACO CONSOLE
+          [F] TERMINAL • [S] 3D SIMULATION
         </span>
       </div>
     </div>

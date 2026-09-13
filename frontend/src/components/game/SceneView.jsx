@@ -8,6 +8,7 @@ export default function SceneView({
   children,
 }) {
   const isFlightModule = moduleId === 'flight-101';
+  const isVaultBreach = moduleId === 'vault-breach';
 
   return (
     <div
@@ -37,8 +38,31 @@ export default function SceneView({
         </div>
       )}
 
-      {/* ── CINEMATIC ARTWORK LAYER (For non-flight modules) ── */}
-      {!isFlightModule && (
+      {/* ── VIDEO BACKGROUND FOR SQL MODULE (VAULT BREACH) ── */}
+      {isVaultBreach && (
+        <div className="absolute inset-0 z-0 overflow-hidden">
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover"
+            style={{ filter: 'brightness(1.15) contrast(1.15) saturate(1.1)' }}
+          >
+            <source src="/videos/vault-breach.mp4" type="video/mp4" />
+            <source src="/VIDEO-2026-09-13-03-03-30.mp4" type="video/mp4" />
+          </video>
+          {/* Subtle cyber/security tint overlay */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/25 via-transparent to-black/35 pointer-events-none" />
+          {/* Alert amber pulse when active emergency */}
+          {emergency && (
+            <div className="absolute inset-0 bg-amber-950/20 animate-pulse-slow" />
+          )}
+        </div>
+      )}
+
+      {/* ── CINEMATIC ARTWORK LAYER (For non-video modules) ── */}
+      {!isFlightModule && !isVaultBreach && (
         <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         {/* Sky gradient - Void black with subtle Charcoal at very low opacity, NO color wash */}
         <div className="absolute inset-0 bg-gradient-to-b from-[#444345]/10 via-black to-black" />

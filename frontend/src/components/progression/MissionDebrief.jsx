@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Button from '../common/Button';
 import SimulationReplay from './SimulationReplay';
+import SimulationStage from '../simulation/SimulationStage';
 
 export default function MissionDebrief({
   open = false,

@@ -28,11 +28,15 @@ export function buildDirectorContext({
   let executionTime = 0;
 
   if (lastExecution) {
-    passed = Boolean(lastExecution.passed || lastExecution.status === 'ACCEPTED');
+    passed = moduleId === 'flight-101'
+      ? lastExecution.passed === true
+      : Boolean(lastExecution.passed || lastExecution.status === 'ACCEPTED');
     verdict = passed
       ? 'Verification Succeeded — Output Accepted'
       : (lastExecution.verdict || lastExecution.status || 'Verification Failed');
-    errorSummary = lastExecution.error || lastExecution.stderr || (passed ? 'All test cases nominal.' : 'Assertion or runtime fault.');
+    errorSummary = moduleId === 'flight-101'
+      ? (lastExecution.error_summary || (passed ? 'All server-side cases passed.' : `${lastExecution.testsPassed || 0}/${lastExecution.totalTests || 0} server-side cases passed.`))
+      : (lastExecution.error || lastExecution.stderr || (passed ? 'All test cases nominal.' : 'Assertion or runtime fault.'));
     executionTime = lastExecution.time || lastExecution.executionTime || 0;
   }
 

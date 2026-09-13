@@ -46,6 +46,12 @@ def create_app():
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
 
+    # ── Log execution sandbox mode ──
+    from services.python_sandbox import get_sandbox_mode
+    sandbox_mode = get_sandbox_mode()
+    logger.info(f"Python sandbox mode: {sandbox_mode}")
+    print(f"Python sandbox mode: {sandbox_mode}")
+
     # ── Register active blueprints under /api ──
     app.register_blueprint(auth_bp, url_prefix="/api")
     app.register_blueprint(students_bp, url_prefix="/api")

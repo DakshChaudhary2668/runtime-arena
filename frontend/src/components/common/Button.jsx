@@ -7,6 +7,7 @@ export default function Button({
   shortcut,
   disabled = false,
   loading = false,
+  loadingText = 'INITIALIZING...',
   className = '',
   type = 'button',
   title,
@@ -43,7 +44,7 @@ export default function Button({
       {loading ? (
         <span className="inline-flex items-center gap-2">
           <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-          <span>INITIALIZING...</span>
+          <span>{loadingText}</span>
         </span>
       ) : (
         <>

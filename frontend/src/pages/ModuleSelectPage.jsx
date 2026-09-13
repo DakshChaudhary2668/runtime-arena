@@ -1,12 +1,31 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SCENARIOS } from '../data/scenarios';
 import ModuleCard from '../components/progression/ModuleCard';
 import { useAuth } from '../context/AuthContext';
+import {
+  getLocalProgress,
+  getAuthoritativeProgress,
+  isModuleUnlocked,
+  isModuleCompleted,
+} from '../services/progression';
 
 export default function ModuleSelectPage() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const [progressMap, setProgressMap] = useState(() => getLocalProgress());
+
+  const userId = user?.id ? String(user.id) : (user?.email || user?.name || 'guest');
+
+  useEffect(() => {
+    let mounted = true;
+    getAuthoritativeProgress(userId).then((authoritative) => {
+      if (mounted) setProgressMap(authoritative);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [userId]);
 
   // Handle keyboard shortcuts
   useEffect(() => {
@@ -22,14 +41,30 @@ export default function ModuleSelectPage() {
   }, [navigate]);
 
   const handleSelectModule = (moduleId) => {
-    const scenario = SCENARIOS.find(s => s.id === moduleId);
+    const scenario = SCENARIOS.find((s) => s.id === moduleId);
+    if (!scenario) return;
 
     // Route to Coming Soon page for space-rescue
-    if (scenario?.status === 'coming-soon') {
+    if (scenario.status === 'coming-soon') {
       navigate(`/modules/${moduleId}`);
-    } else {
-      navigate(`/mission/${moduleId}/01`);
+      return;
     }
+
+    if (!isModuleUnlocked(moduleId, progressMap)) {
+      return;
+    }
+
+    // Determine first uncompleted mission or start at 01
+    const completed = progressMap[moduleId] || [];
+    let startMission = '01';
+    for (let i = 1; i <= (scenario.totalMissions || 3); i++) {
+      const mid = String(i).padStart(2, '0');
+      if (!completed.includes(mid)) {
+        startMission = mid;
+        break;
+      }
+    }
+    navigate(`/mission/${moduleId}/${startMission}`);
   };
 
   return (
@@ -99,15 +134,22 @@ export default function ModuleSelectPage() {
 
           {/* Grid of Modules */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {SCENARIOS.map((scenario) => (
-              <ModuleCard
-                key={scenario.id}
-                scenario={scenario}
-                onSelect={handleSelectModule}
-                isLocked={scenario.status === 'locked'}
-                isComingSoon={scenario.status === 'coming-soon'}
-              />
-            ))}
+            {SCENARIOS.map((scenario) => {
+              const isComingSoon = scenario.status === 'coming-soon';
+              const isUnlocked = isModuleUnlocked(scenario.id, progressMap);
+              const isCompleted = isModuleCompleted(scenario.id, scenario.totalMissions || 3, progressMap);
+
+              return (
+                <ModuleCard
+                  key={scenario.id}
+                  scenario={scenario}
+                  onSelect={handleSelectModule}
+                  isLocked={!isUnlocked && !isComingSoon}
+                  isCompleted={isCompleted}
+                  isComingSoon={isComingSoon}
+                />
+              );
+            })}
           </div>
 
           {/* Quick instructions */}

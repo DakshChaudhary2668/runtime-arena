@@ -4,6 +4,8 @@ Code Execution Route — uses SQLite for student score updates.
 
 from flask import Blueprint, request, jsonify
 from services.judge0 import execute_code
+from services.python_sandbox import execute_python_mission
+from services.sql_sandbox import execute_sql_mission
 from models.database import (
     get_student_by_name,
     record_failed_execution,
@@ -17,8 +19,8 @@ execute_bp = Blueprint("execute", __name__)
 @execute_bp.route("/execute", methods=["POST"])
 def run_code():
     """
-    Execute code via Judge0 and update student score in DB.
-    Body: { code, language_id, student }
+    Execute code via Judge0 or SQLite Sandbox and update student score in DB.
+    Body: { code, language_id, student, module_id, mission_id }
     """
     data = request.get_json()
 
@@ -35,13 +37,21 @@ def run_code():
     if not code.strip():
         return jsonify({"error": "Code cannot be empty"}), 400
 
-    # Execute via Judge0
-    result = execute_code(code, language_id)
+    # SQL retains its existing route; Flight 101 uses the server-side verifier.
+    if module_id == "flight-101":
+        result = execute_python_mission(mission_id, code)
+    elif module_id == "vault-breach" or language_id == 82:
+        result = execute_sql_mission(mission_id, code)
+    else:
+        result = execute_code(code, language_id)
 
     # Calculate score
     status = result.get("status", "")
-    if status == "Accepted":
+    verified = result.get("passed") is True if module_id == "flight-101" else status == "Accepted"
+    if verified:
         score = 100
+    elif module_id == "flight-101":
+        score = 0
     elif "Error" in status:
         score = 0
     else:
@@ -58,7 +68,7 @@ def run_code():
     # Analytics writes are additive and deliberately isolated from execution.
     if module_id and mission_id:
         try:
-            if status == "Accepted":
+            if verified:
                 record_mission_completion(
                     user_id=user_id,
                     student_name=student_name or "Guest Pilot",

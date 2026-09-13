@@ -526,8 +526,8 @@ def record_mission_completion(
                   topic = EXCLUDED.topic,
                   attempts = EXCLUDED.attempts,
                   hint_level = EXCLUDED.hint_level,
-                  xp_earned = EXCLUDED.xp_earned,
-                  xp_deducted = EXCLUDED.xp_deducted,
+                  xp_earned = CASE WHEN mission_completion.xp_earned > 0 THEN mission_completion.xp_earned ELSE EXCLUDED.xp_earned END,
+                  xp_deducted = CASE WHEN mission_completion.xp_earned > 0 THEN mission_completion.xp_deducted ELSE EXCLUDED.xp_deducted END,
                   time_seconds = EXCLUDED.time_seconds,
                   completed_at = CURRENT_TIMESTAMP"""
         else:
@@ -540,8 +540,8 @@ def record_mission_completion(
                   topic = excluded.topic,
                   attempts = excluded.attempts,
                   hint_level = excluded.hint_level,
-                  xp_earned = excluded.xp_earned,
-                  xp_deducted = excluded.xp_deducted,
+                  xp_earned = CASE WHEN mission_completion.xp_earned > 0 THEN mission_completion.xp_earned ELSE excluded.xp_earned END,
+                  xp_deducted = CASE WHEN mission_completion.xp_earned > 0 THEN mission_completion.xp_deducted ELSE excluded.xp_deducted END,
                   time_seconds = excluded.time_seconds,
                   completed_at = CURRENT_TIMESTAMP"""
         _execute(conn, sql, (
